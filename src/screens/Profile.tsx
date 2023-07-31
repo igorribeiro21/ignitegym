@@ -7,11 +7,14 @@ import * as FileSystem from 'expo-file-system';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 
+import { api } from '@services/api';
+
 import { ScreenHeader } from '@components/ScreenHeader';
 import { UserPhoto } from '@components/UserPhoto';
 import { Input } from '@components/Input';
 import { Button } from '@components/Button';
 import { useAuth } from '@hooks/useAuth';
+import { AppError } from '@utils/AppError';
 
 
 const PHOTO_SIZE = 33;
@@ -39,16 +42,17 @@ const profileSchema = yup.object({
         .oneOf([yup.ref('password'), ''], 'A confirmação da senha não confere.')
         .when('password', {
             is: (Field: any) => Field,
-            then: (schema) => schema.nullable().required('Informe a confirmação de senha')
+            then: (schema) => schema.nullable().required('Informe a confirmação de senha')//.transform((value) => !!value ? value : null)
         }),
 });
 
 export function Profile() {
+    const [isUpdating, setIsUpdating] = useState(false);
     const [photoIsLoading, setPhotoIsLoading] = useState(false);
     const [userPhoto, setUserPhoto] = useState('https://github.com/igorribeiro21.png');
 
     const toast = useToast();
-    const { user } = useAuth();
+    const { user, updateUserProfile } = useAuth();
     const { control, handleSubmit, formState: { errors } } = useForm<FormDataProps>({
         defaultValues: {
             name: user.name,
@@ -86,7 +90,17 @@ export function Profile() {
                     });
                 }
 
-                setUserPhoto(photoSelected.assets[0].uri);
+               // setUserPhoto(photoSelected.assets[0].uri);
+
+               const fileExtension = photoSelected.assets[0].uri.split('.').pop();               
+
+               const photoFile = {
+                name: `${user.name}.${fileExtension}`.toLowerCase(),
+                uri: photoSelected.assets[0].uri,
+                type: `${photoSelected.assets[0].type}/${fileExtension}`
+               }
+
+               console.log(photoFile);
             }
 
         } catch (error) {
@@ -97,7 +111,33 @@ export function Profile() {
     }
 
     async function handleProfileUpdate(data: FormDataProps) {
-        console.log(data)
+        try {
+            setIsUpdating(true);
+
+            const userUpdated = user;
+            userUpdated.name = data.name;
+
+            await api.put('/users', data);
+
+            await updateUserProfile(userUpdated);
+
+            toast.show({
+                title: 'Perfil atualizado com sucesso!',
+                placement: 'top',
+                color: 'green.500'
+            });
+        } catch (error) {
+            const isAppError = error instanceof AppError;
+            const title = isAppError ? error.message : 'Não foi possível atualizar os dados. Tente novamente mais tarde!';
+
+            toast.show({
+                title,
+                placement: 'top',
+                color: 'red.500'
+            });
+        } finally {
+            setIsUpdating(false);
+        }
     }
 
     return (
@@ -207,6 +247,7 @@ export function Profile() {
                         title='Atualizar'
                         mt={4}
                         onPress={handleSubmit(handleProfileUpdate)}
+                        isLoading={isUpdating}
                     />
                 </Center>
             </ScrollView>
