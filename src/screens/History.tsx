@@ -7,6 +7,7 @@ import { AppError } from '@utils/AppError';
 import { api } from '@services/api';
 import { useFocusEffect } from '@react-navigation/native';
 import { HistoryByDayDTO } from '@dtos/HistoryByDayDTO';
+import { Loading } from '@components/Loading';
 
 export function History() {
     const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +43,7 @@ export function History() {
         <VStack flex={1}>
             <ScreenHeader title='Histórico de Exercícios' />
 
-            <SectionList
+            {isLoading ? <Loading /> : <SectionList
                 sections={exercises}
                 keyExtractor={item => item.id}
                 renderItem={({ item }) => (
@@ -62,7 +63,7 @@ export function History() {
                     </Text>
                 )}
                 showsVerticalScrollIndicator={false}
-            />
+            />}
 
         </VStack>
     );
